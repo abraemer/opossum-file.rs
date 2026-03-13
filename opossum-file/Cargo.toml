@@ -1,0 +1,11 @@
+[package]
+name = "opossum-file"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+opossum-lib = { path = "../opossum-lib" }
+clap = { version = "4.5", features = ["derive"] }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

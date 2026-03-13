@@ -1,0 +1,18 @@
+[workspace]
+members = ["purl", "opossum-lib", "opossum-file"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/opossum-tool/opossum-file.rs"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+anyhow = "1.0"
+tracing = "0.1"
+chrono = "0.4"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+purl = { path = "purl" }
