@@ -63,7 +63,7 @@ pub struct SourceInfoModel {
 #[serde(rename_all = "camelCase")]
 pub struct OpossumPackageModel {
     pub source: SourceInfoModel,
-    pub attribution_confidence: Option<i32>,
+    pub attribution_confidence: Option<f64>,
     pub comment: Option<String>,
     pub package_name: Option<String>,
     pub package_version: Option<String>,

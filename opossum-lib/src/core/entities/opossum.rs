@@ -17,4 +17,9 @@ impl Opossum {
             review_results: None,
         }
     }
+
+    pub fn with_review_results(mut self, review_results: Option<serde_json::Value>) -> Self {
+        self.review_results = review_results;
+        self
+    }
 }
