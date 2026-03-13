@@ -169,3 +169,220 @@ fn test_attribution_breakpoints_parsed() {
         .attribution_breakpoints
         .contains(&"/Frontend/Components/".to_string()));
 }
+
+#[test]
+fn test_read_actual_opossum_file() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let result = reader.read();
+
+    assert!(result.is_ok());
+    let opossum = result.unwrap();
+
+    assert_eq!(
+        opossum.scan_results.metadata.project_id,
+        "2a58a469-738e-4508-98d3-a27bce6e71f7"
+    );
+}
+
+#[test]
+fn test_read_opossum_file_with_result() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input_with_result.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let result = reader.read();
+
+    assert!(result.is_ok());
+    let opossum = result.unwrap();
+    assert!(opossum.review_results.is_some());
+}
+
+#[test]
+fn test_read_opossum_file_with_classification() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input_with_classification.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let result = reader.read();
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_read_corrupt_opossum_file() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input_corrupt.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let result = reader.read();
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_attributions_have_correct_ids() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let zip_path = temp_dir.path().join("test_attributions.opossum");
+
+    create_test_zip(&zip_path, &get_test_input_json(), None);
+
+    let reader = OpossumFileReader::new(&zip_path);
+    let opossum = reader.read().unwrap();
+
+    assert!(!opossum.scan_results.attribution_to_id.is_empty());
+}
+
+#[test]
+fn test_files_with_children_parsed() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let zip_path = temp_dir.path().join("test_files_with_children.opossum");
+
+    create_test_zip(&zip_path, &get_test_input_json(), None);
+
+    let reader = OpossumFileReader::new(&zip_path);
+    let opossum = reader.read().unwrap();
+
+    assert!(!opossum.scan_results.files_with_children.is_empty());
+}
+
+#[test]
+fn test_base_urls_for_sources_parsed() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let zip_path = temp_dir.path().join("test_base_urls.opossum");
+
+    create_test_zip(&zip_path, &get_test_input_json(), None);
+
+    let reader = OpossumFileReader::new(&zip_path);
+    let opossum = reader.read().unwrap();
+
+    assert!(!opossum.scan_results.base_urls_for_sources.urls.is_empty());
+}
+
+#[test]
+fn test_all_resources_have_paths() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let zip_path = temp_dir.path().join("test_paths.opossum");
+
+    create_test_zip(&zip_path, &get_test_input_json(), None);
+
+    let reader = OpossumFileReader::new(&zip_path);
+    let opossum = reader.read().unwrap();
+
+    for resource in opossum.scan_results.resources.all_resources() {
+        assert!(!resource.path.to_str().unwrap_or("").is_empty());
+    }
+}
+
+#[test]
+fn test_roundtrip_preserves_metadata() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let opossum = reader.read().unwrap();
+
+    let original_metadata = &opossum.scan_results.metadata;
+
+    assert_eq!(
+        original_metadata.project_id,
+        "2a58a469-738e-4508-98d3-a27bce6e71f7"
+    );
+    assert_eq!(original_metadata.project_title, "Test Title");
+}
+
+#[test]
+fn test_roundtrip_preserves_resources() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let opossum = reader.read().unwrap();
+
+    let resource_count = opossum.scan_results.resources.all_resources().count();
+    assert!(resource_count > 0);
+}
+
+#[test]
+fn test_roundtrip_preserves_external_attributions() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let opossum = reader.read().unwrap();
+
+    assert!(!opossum.scan_results.attribution_to_id.is_empty());
+}
+
+#[test]
+fn test_roundtrip_preserves_attribution_breakpoints() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let opossum = reader.read().unwrap();
+
+    assert!(!opossum.scan_results.attribution_breakpoints.is_empty());
+}
+
+#[test]
+fn test_roundtrip_preserves_external_attribution_sources() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let opossum = reader.read().unwrap();
+
+    assert!(!opossum.scan_results.external_attribution_sources.is_empty());
+}
+
+#[test]
+fn test_roundtrip_preserves_frequent_licenses() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let opossum = reader.read().unwrap();
+
+    assert!(!opossum.scan_results.frequent_licenses.is_empty());
+}
+
+#[test]
+fn test_roundtrip_preserves_files_with_children() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let opossum = reader.read().unwrap();
+
+    assert!(!opossum.scan_results.files_with_children.is_empty());
+}
+
+#[test]
+fn test_roundtrip_preserves_base_urls_for_sources() {
+    let zip_path = std::path::Path::new("tests/data/opossum_input.opossum");
+
+    let reader = OpossumFileReader::new(zip_path);
+    let opossum = reader.read().unwrap();
+
+    assert!(!opossum.scan_results.base_urls_for_sources.urls.is_empty());
+}
+
+#[test]
+fn test_input_file_only_roundtrip() {
+    let input_json = r#"{
+        "metadata": {
+            "projectId": "test-id",
+            "fileCreationDate": "2020-01-01",
+            "projectTitle": "Test"
+        },
+        "resources": {},
+        "externalAttributions": {},
+        "resourcesToAttributions": {},
+        "attributionBreakpoints": [],
+        "externalAttributionSources": {}
+    }"#;
+
+    let temp_dir = tempfile::tempdir().unwrap();
+    let zip_path = temp_dir.path().join("input_only.opossum");
+
+    create_test_zip(&zip_path, input_json, None);
+
+    let reader = OpossumFileReader::new(&zip_path);
+    let result = reader.read();
+
+    assert!(result.is_ok());
+    let opossum = result.unwrap();
+    assert!(opossum.review_results.is_none());
+}

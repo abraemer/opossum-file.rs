@@ -252,7 +252,7 @@ fn remove_assigned_attributions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::entities::{Resource, ResourceType};
+    use crate::core::entities::{ExternalAttributionSource, FrequentLicense, Resource, ResourceType};
 
     fn create_test_opossum(title: &str) -> Opossum {
         let metadata = Metadata {
@@ -273,10 +273,99 @@ mod tests {
         Opossum::new(scan_results)
     }
 
+    fn create_test_opossum_with_breakpoints(title: &str, breakpoints: Vec<String>) -> Opossum {
+        let metadata = Metadata {
+            project_id: Uuid::new_v4().to_string(),
+            project_title: title.to_string(),
+            file_creation_date: chrono::Utc::now().to_rfc3339(),
+            project_version: None,
+            expected_release_date: None,
+            build_date: None,
+            extra: BTreeMap::new(),
+        };
+
+        let mut scan_results = ScanResults::new(metadata);
+        scan_results.attribution_breakpoints = breakpoints;
+        let mut resource = Resource::new(std::path::PathBuf::from("test.txt"));
+        resource.resource_type = Some(ResourceType::File);
+        let _ = scan_results.resources.add_resource(resource);
+
+        Opossum::new(scan_results)
+    }
+
+    fn create_test_opossum_with_sources(
+        title: &str,
+        sources: BTreeMap<String, ExternalAttributionSource>,
+    ) -> Opossum {
+        let metadata = Metadata {
+            project_id: Uuid::new_v4().to_string(),
+            project_title: title.to_string(),
+            file_creation_date: chrono::Utc::now().to_rfc3339(),
+            project_version: None,
+            expected_release_date: None,
+            build_date: None,
+            extra: BTreeMap::new(),
+        };
+
+        let mut scan_results = ScanResults::new(metadata);
+        scan_results.external_attribution_sources = sources;
+        let mut resource = Resource::new(std::path::PathBuf::from("test.txt"));
+        resource.resource_type = Some(ResourceType::File);
+        let _ = scan_results.resources.add_resource(resource);
+
+        Opossum::new(scan_results)
+    }
+
+    fn create_test_opossum_with_licenses(title: &str, licenses: Vec<FrequentLicense>) -> Opossum {
+        let metadata = Metadata {
+            project_id: Uuid::new_v4().to_string(),
+            project_title: title.to_string(),
+            file_creation_date: chrono::Utc::now().to_rfc3339(),
+            project_version: None,
+            expected_release_date: None,
+            build_date: None,
+            extra: BTreeMap::new(),
+        };
+
+        let mut scan_results = ScanResults::new(metadata);
+        scan_results.frequent_licenses = licenses;
+        let mut resource = Resource::new(std::path::PathBuf::from("test.txt"));
+        resource.resource_type = Some(ResourceType::File);
+        let _ = scan_results.resources.add_resource(resource);
+
+        Opossum::new(scan_results)
+    }
+
+    fn create_test_opossum_with_files_with_children(title: &str, files: Vec<String>) -> Opossum {
+        let metadata = Metadata {
+            project_id: Uuid::new_v4().to_string(),
+            project_title: title.to_string(),
+            file_creation_date: chrono::Utc::now().to_rfc3339(),
+            project_version: None,
+            expected_release_date: None,
+            build_date: None,
+            extra: BTreeMap::new(),
+        };
+
+        let mut scan_results = ScanResults::new(metadata);
+        scan_results.files_with_children = files;
+        let mut resource = Resource::new(std::path::PathBuf::from("test.txt"));
+        resource.resource_type = Some(ResourceType::File);
+        let _ = scan_results.resources.add_resource(resource);
+
+        Opossum::new(scan_results)
+    }
+
     #[test]
     fn test_merge_opossums_requires_at_least_two() {
         let opossum = create_test_opossum("test");
         let result = merge_opossums(vec![opossum]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_merge_opossums_errors_with_empty_list() {
+        let result = merge_opossums(vec![]);
         assert!(result.is_err());
     }
 
@@ -303,5 +392,195 @@ mod tests {
         assert!(merged.project_title.contains("project1"));
         assert!(merged.project_title.contains("project2"));
         assert_ne!(merged.project_id, o1.scan_results.metadata.project_id);
+    }
+
+    #[test]
+    fn test_merge_opossums_with_empty_review_results() {
+        let opossum1 = create_test_opossum("project1");
+        let opossum2 = create_test_opossum("project2");
+        let result = merge_opossums(vec![opossum1, opossum2]);
+        assert!(result.is_ok());
+        let merged = result.unwrap();
+        assert!(merged.review_results.is_none());
+    }
+
+    #[test]
+    fn test_merge_opossums_with_single_review_results() {
+        let mut opossum1 = create_test_opossum("project1");
+        let review = serde_json::json!({
+            "metadata": { "projectId": "test-project" },
+            "manualAttributions": {},
+            "resourcesToAttributions": {}
+        });
+        opossum1.review_results = Some(review);
+
+        let opossum2 = create_test_opossum("project2");
+
+        let result = merge_opossums(vec![opossum1, opossum2]);
+        assert!(result.is_ok());
+        let merged = result.unwrap();
+        assert!(merged.review_results.is_some());
+    }
+
+    #[test]
+    fn test_merge_combines_attribution_breakpoints_correctly() {
+        let opossum1 = create_test_opossum_with_breakpoints(
+            "project1",
+            vec!["breakpoint1".to_string(), "breakpoint2".to_string()],
+        );
+        let opossum2 = create_test_opossum_with_breakpoints(
+            "project2",
+            vec!["breakpoint2".to_string(), "breakpoint3".to_string()],
+        );
+
+        let merged = merge_opossums(vec![opossum1, opossum2]).unwrap();
+
+        let breakpoints: HashSet<_> = merged
+            .scan_results
+            .attribution_breakpoints
+            .into_iter()
+            .collect();
+        assert!(breakpoints.contains("breakpoint1"));
+        assert!(breakpoints.contains("breakpoint2"));
+        assert!(breakpoints.contains("breakpoint3"));
+    }
+
+    #[test]
+    fn test_merge_combines_external_attribution_sources_correctly() {
+        let mut sources1 = BTreeMap::new();
+        sources1.insert(
+            "external1".to_string(),
+            ExternalAttributionSource {
+                name: "external1".to_string(),
+                priority: 1,
+                is_relevant_for_preferred: None,
+            },
+        );
+        sources1.insert(
+            "external2".to_string(),
+            ExternalAttributionSource {
+                name: "external2".to_string(),
+                priority: 2,
+                is_relevant_for_preferred: None,
+            },
+        );
+
+        let mut sources2 = BTreeMap::new();
+        sources2.insert(
+            "external1".to_string(),
+            ExternalAttributionSource {
+                name: "external1".to_string(),
+                priority: 3,
+                is_relevant_for_preferred: None,
+            },
+        );
+        sources2.insert(
+            "external3".to_string(),
+            ExternalAttributionSource {
+                name: "external3".to_string(),
+                priority: 3,
+                is_relevant_for_preferred: None,
+            },
+        );
+
+        let opossum1 = create_test_opossum_with_sources("project1", sources1);
+        let opossum2 = create_test_opossum_with_sources("project2", sources2);
+
+        let merged = merge_opossums(vec![opossum1, opossum2]).unwrap();
+
+        assert!(merged
+            .scan_results
+            .external_attribution_sources
+            .contains_key("external1"));
+        assert!(merged
+            .scan_results
+            .external_attribution_sources
+            .contains_key("external2"));
+        assert!(merged
+            .scan_results
+            .external_attribution_sources
+            .contains_key("external3"));
+    }
+
+    #[test]
+    fn test_merge_combines_frequent_licenses_correctly() {
+        let license1 = FrequentLicense {
+            short_name: "MIT".to_string(),
+            full_name: "MIT License".to_string(),
+            default_text: "MIT text".to_string(),
+        };
+        let license2 = FrequentLicense {
+            short_name: "Apache-2.0".to_string(),
+            full_name: "Apache License 2.0".to_string(),
+            default_text: "Apache text".to_string(),
+        };
+        let license3 = FrequentLicense {
+            short_name: "GPL-3.0".to_string(),
+            full_name: "GNU General Public License v3.0".to_string(),
+            default_text: "GPL text".to_string(),
+        };
+
+        let opossum1 = create_test_opossum_with_licenses("project1", vec![license1, license2.clone()]);
+        let opossum2 = create_test_opossum_with_licenses("project2", vec![license2, license3]);
+
+        let merged = merge_opossums(vec![opossum1, opossum2]).unwrap();
+
+        let license_names: HashSet<_> = merged
+            .scan_results
+            .frequent_licenses
+            .iter()
+            .map(|l| l.short_name.as_str())
+            .collect();
+        assert!(license_names.contains("MIT"));
+        assert!(license_names.contains("Apache-2.0"));
+        assert!(license_names.contains("GPL-3.0"));
+    }
+
+    #[test]
+    fn test_merge_combines_files_with_children_correctly() {
+        let opossum1 = create_test_opossum_with_files_with_children(
+            "project1",
+            vec!["path1/".to_string(), "path2/".to_string()],
+        );
+        let opossum2 = create_test_opossum_with_files_with_children(
+            "project2",
+            vec!["path2/".to_string(), "path3/".to_string()],
+        );
+
+        let merged = merge_opossums(vec![opossum1, opossum2]).unwrap();
+
+        let paths: HashSet<_> = merged
+            .scan_results
+            .files_with_children
+            .into_iter()
+            .collect();
+        assert!(paths.contains("path1/"));
+        assert!(paths.contains("path2/"));
+        assert!(paths.contains("path3/"));
+    }
+
+    #[test]
+    fn test_merge_three_opossums() {
+        let opossum1 = create_test_opossum("project1");
+        let opossum2 = create_test_opossum("project2");
+        let opossum3 = create_test_opossum("project3");
+
+        let result = merge_opossums(vec![opossum1, opossum2, opossum3]);
+        assert!(result.is_ok());
+        let merged = result.unwrap();
+        assert!(merged.scan_results.metadata.project_title.contains("project1"));
+        assert!(merged.scan_results.metadata.project_title.contains("project2"));
+        assert!(merged.scan_results.metadata.project_title.contains("project3"));
+    }
+
+    #[test]
+    fn test_merge_generates_new_project_id() {
+        let opossum1 = create_test_opossum("project1");
+        let opossum2 = create_test_opossum("project2");
+
+        let original_id = opossum1.scan_results.metadata.project_id.clone();
+        let merged = merge_opossums(vec![opossum1, opossum2]).unwrap();
+
+        assert_ne!(merged.scan_results.metadata.project_id, original_id);
     }
 }

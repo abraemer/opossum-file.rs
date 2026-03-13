@@ -120,3 +120,67 @@ fn test_owasp_file_reader_has_purl_info() {
     });
     assert!(has_purl_info);
 }
+
+#[test]
+fn test_owasp_no_review_results() {
+    let test_file = Path::new("tests/data/dependency-check-report.json");
+    let reader =
+        OwaspDependencyScanFileReader::from_file(test_file).expect("Failed to create reader");
+
+    let opossum = reader.read().expect("Failed to read OWASP data");
+
+    assert!(opossum.review_results.is_none());
+}
+
+#[test]
+fn test_owasp_has_correct_external_attribution_source() {
+    let test_file = Path::new("tests/data/dependency-check-report.json");
+    let reader =
+        OwaspDependencyScanFileReader::from_file(test_file).expect("Failed to create reader");
+
+    let opossum = reader.read().expect("Failed to read OWASP data");
+
+    assert_eq!(opossum.scan_results.external_attribution_sources.len(), 1);
+    let source = opossum
+        .scan_results
+        .external_attribution_sources
+        .get("Dependency-Check");
+    assert!(source.is_some());
+    let source = source.unwrap();
+    assert_eq!(source.name, "Dependency-Check");
+    assert_eq!(source.priority, 40);
+}
+
+#[test]
+fn test_owasp_all_attributions_have_correct_source() {
+    let test_file = Path::new("tests/data/dependency-check-report.json");
+    let reader =
+        OwaspDependencyScanFileReader::from_file(test_file).expect("Failed to create reader");
+
+    let opossum = reader.read().expect("Failed to read OWASP data");
+
+    for resource in opossum.scan_results.resources.all_resources() {
+        for attribution in &resource.attributions {
+            assert_eq!(attribution.source.name, "Dependency-Check");
+            assert_eq!(attribution.attribution_confidence, Some(50));
+        }
+    }
+}
+
+#[test]
+fn test_owasp_attribution_count() {
+    let test_file = Path::new("tests/data/dependency-check-report.json");
+    let reader =
+        OwaspDependencyScanFileReader::from_file(test_file).expect("Failed to create reader");
+
+    let opossum = reader.read().expect("Failed to read OWASP data");
+
+    let attribution_count: usize = opossum
+        .scan_results
+        .resources
+        .all_resources()
+        .map(|r| r.attributions.len())
+        .sum();
+
+    assert!(attribution_count > 0);
+}
