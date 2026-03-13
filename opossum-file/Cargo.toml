@@ -2,6 +2,12 @@
 name = "opossum-file"
 version = "0.1.0"
 edition.workspace = true
+repository.workspace = true
+description = "Convert ScanCode JSON, Opossum files, and OWASP Dependency Scan JSON into .opossum format"
+homepage = "https://github.com/opossum-tool/opossum-file.rs"
+
+[package.metadata.dist]
+dashed = false
 
 [dependencies]
 opossum-lib = { path = "../opossum-lib" }
